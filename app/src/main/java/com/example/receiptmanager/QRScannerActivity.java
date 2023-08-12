@@ -6,6 +6,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Camera;
 import android.os.Bundle;
@@ -35,7 +36,7 @@ public class QRScannerActivity extends AppCompatActivity {
         CodeScannerView scannerView = findViewById(R.id.scanner_view);
         mCodeScanner = new CodeScanner(this, scannerView);
         mCodeScanner.setCamera(CodeScanner.CAMERA_BACK);
-        mCodeScanner.setFormats(CodeScanner.ALL_FORMATS);
+        mCodeScanner.setFormats(CodeScanner.TWO_DIMENSIONAL_FORMATS);
         mCodeScanner.setAutoFocusMode(AutoFocusMode.SAFE);
         mCodeScanner.setScanMode(ScanMode.CONTINUOUS);
         mCodeScanner.setFlashEnabled(false);
@@ -46,7 +47,13 @@ public class QRScannerActivity extends AppCompatActivity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        Toast.makeText(QRScannerActivity.this, result.getText(), Toast.LENGTH_LONG).show();
+                        if(!result.getText().contains("suf.purs.gov.rs")) {
+                            Toast.makeText(QRScannerActivity.this, "QR Code scanned is not a receipt.", Toast.LENGTH_LONG).show();
+                            finish();
+                        }
+                        Intent data = new Intent();
+                        data.putExtra("RESULT_STRING", result.getText());
+                        setResult(RESULT_OK, data);
                         finish();
                     }
                 });
