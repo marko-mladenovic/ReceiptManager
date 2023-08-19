@@ -2,83 +2,142 @@ package com.example.receiptmanager;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.fragment.app.FragmentManager;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
-import android.app.Fragment;
-import android.app.FragmentTransaction;
-import android.content.DialogInterface;
 import android.content.Intent;
-import android.os.AsyncTask;
 import android.os.Bundle;
-import android.widget.TextView;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.widget.Toast;
 
+import com.example.receiptmanager.dbcontrol.ReceiptViewModel;
+import com.example.receiptmanager.model.Receipt;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
 import java.io.IOException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
 
     final int RECEIPT_REQUEST_CODE = 101;
-
-    private FloatingActionButton mCameraButton;
-    private TextView mReceiptURL;
+    final int NEW_RECEIPT_REQUEST_CODE = 201;
 
     private String scannedUrl;
     private String scrapedData;
+
+    private ReceiptViewModel mReceiptViewModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mReceiptURL = findViewById(R.id.receipt_url);
-        mCameraButton = findViewById(R.id.cameraButton);
-        mCameraButton.setOnClickListener(view -> {
-            startActivityForResult(new Intent(MainActivity.this, QRScannerActivity.class), RECEIPT_REQUEST_CODE);
-        });
+        FloatingActionButton mCameraButton = findViewById(R.id.cameraButton);
+        mCameraButton.setOnClickListener(view -> startActivityForResult(new Intent(MainActivity.this, QRScannerActivity.class), RECEIPT_REQUEST_CODE));
+
+        RecyclerView recyclerView = findViewById(R.id.recyclerview);
+        final ReceiptListAdapter adapter = new ReceiptListAdapter(new ReceiptListAdapter.ReceiptDiff());
+        recyclerView.setAdapter(adapter);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+
+        mReceiptViewModel = new ViewModelProvider(this).get(ReceiptViewModel.class);
+        mReceiptViewModel.getAllReceipts().observe(this, adapter::submitList);
     }
+
+    ExecutorService executor = Executors.newSingleThreadExecutor();
+    Handler handler = new Handler(Looper.getMainLooper()) {
+        @Override
+        public void handleMessage(Message message) {
+
+        }
+    };
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == RECEIPT_REQUEST_CODE) {
-            if (resultCode == RESULT_OK) {
-
-                scannedUrl = data.getStringExtra("RESULT_STRING");
-                (new Scraper()).execute();
-            }
+        if (requestCode == RECEIPT_REQUEST_CODE && resultCode == RESULT_OK) {
+            assert data != null;
+            scannedUrl = data.getStringExtra("RESULT_STRING");
+            executor.execute(scrapeData);
+        }
+        if (requestCode == NEW_RECEIPT_REQUEST_CODE && resultCode == RESULT_OK) {
+            executor.execute(insertReceipt);
         }
     }
 
-    public class Scraper extends AsyncTask<Void, Void, Void> {
+    Runnable insertReceipt = () -> {
+        if(mReceiptViewModel.doesExist(scannedUrl)) {
+            this.runOnUiThread(() -> {
+                Toast.makeText(this, "Receipt is already scanned and saved.", Toast.LENGTH_LONG).show();
+            });
+        } else {
+            Receipt newReceipt = new Receipt(scannedUrl);
 
-        @Override
-        protected Void doInBackground(Void... voids) {
+            //Setting the whole formatted Receipt
+            newReceipt.setData(scrapedData);
+
+            //Getting the date out and setting it
+            String dateString = scrapedData.substring(scrapedData.indexOf("ПФР време:") + 10, scrapedData.lastIndexOf("ПФР број рачуна:") - 1).trim();
             try {
-                Document doc = Jsoup.connect(scannedUrl).get();
-                scrapedData = doc.text();
-            } catch (IOException e) {
+                long date = new SimpleDateFormat("dd.MM.yyyy. HH:mm:ss").parse(dateString).getTime();
+                newReceipt.setDate(date);
+            } catch (ParseException e) {
                 e.printStackTrace();
             }
 
-            return null;
+            //Getting the price out and setting it
+            String priceOnwards = scrapedData.substring(scrapedData.indexOf("Укупан износ:") + 18);
+            String price = priceOnwards.substring(0, priceOnwards.indexOf("\n")).trim();
+            newReceipt.setCost(Double.parseDouble((price.replace(".", "")).replace(",", ".")));
+
+            //Getting the store name out and setting it
+            String storeName = scrapedData;
+            for(int i = 0; i < 2; i++)
+                storeName = storeName.substring(storeName.indexOf("\n") + 1);
+            storeName = storeName.substring(0, storeName.indexOf("\n")).trim();
+            newReceipt.setStore(storeName);
+
+            //Getting the address of the store out and setting it
+            String address = scrapedData;
+            for(int i = 0; i < 3; i++)
+                address = address.substring(address.indexOf("\n") + 1);
+            address = address.substring(0, address.indexOf("\n")).trim();
+            newReceipt.setLocation(address);
+
+            mReceiptViewModel.insert(newReceipt);
+            this.runOnUiThread(() -> {
+                Toast.makeText(this, "Receipt saved.", Toast.LENGTH_LONG).show();
+            });
+        }
+    };
+
+    Runnable scrapeData = () -> {
+        try {
+            Document doc = Jsoup.connect(scannedUrl).get();
+            scrapedData = doc.text();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
 
-        @Override
-        protected void onPostExecute(Void unused) {
-            super.onPostExecute(unused);
-            Pattern pattern = Pattern.compile("============ ФИСКАЛНИ РАЧУН ============" +
-                                                    "([\\s\\S]+)" +
-                                                    "======== КРАЈ ФИСКАЛНОГ РАЧУНА ========");
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                scrapedData = scrapedData.substring(scrapedData.indexOf("============"), scrapedData.lastIndexOf("=========") + 9);
 
-            Matcher matcher = pattern.matcher(scrapedData);
-            mReceiptURL.setText(matcher.group());
-        }
-    }
+                Intent intent = new Intent(MainActivity.this, AddReceiptActivity.class);
+                intent.putExtra("receiptData", scrapedData);
+                startActivityForResult(intent, NEW_RECEIPT_REQUEST_CODE);
+            }
+        });
+    };
 }

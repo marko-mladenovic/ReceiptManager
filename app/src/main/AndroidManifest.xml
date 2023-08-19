@@ -20,6 +20,9 @@
         android:theme="@style/Theme.ReceiptManager"
         tools:targetApi="31">
         <activity
+            android:name=".AddReceiptActivity"
+            android:exported="false" />
+        <activity
             android:name=".QRScannerActivity"
             android:exported="false" />
         <activity
