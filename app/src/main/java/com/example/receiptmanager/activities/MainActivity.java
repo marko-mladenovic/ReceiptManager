@@ -1,4 +1,4 @@
-package com.example.receiptmanager;
+package com.example.receiptmanager.activities;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -10,9 +10,10 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.Message;
 import android.widget.Toast;
 
+import com.example.receiptmanager.R;
+import com.example.receiptmanager.recyclerviewcontrol.ReceiptListAdapter;
 import com.example.receiptmanager.dbcontrol.ReceiptViewModel;
 import com.example.receiptmanager.model.Receipt;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -23,11 +24,10 @@ import org.jsoup.nodes.Document;
 import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements ReceiptListAdapter.ClickListener {
 
     final int RECEIPT_REQUEST_CODE = 101;
     final int NEW_RECEIPT_REQUEST_CODE = 201;
@@ -46,7 +46,7 @@ public class MainActivity extends AppCompatActivity {
         mCameraButton.setOnClickListener(view -> startActivityForResult(new Intent(MainActivity.this, QRScannerActivity.class), RECEIPT_REQUEST_CODE));
 
         RecyclerView recyclerView = findViewById(R.id.recyclerview);
-        final ReceiptListAdapter adapter = new ReceiptListAdapter(new ReceiptListAdapter.ReceiptDiff());
+        final ReceiptListAdapter adapter = new ReceiptListAdapter(new ReceiptListAdapter.ReceiptDiff(), this);
         recyclerView.setAdapter(adapter);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
@@ -55,12 +55,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     ExecutorService executor = Executors.newSingleThreadExecutor();
-    Handler handler = new Handler(Looper.getMainLooper()) {
-        @Override
-        public void handleMessage(Message message) {
-
-        }
-    };
+    Handler handler = new Handler(Looper.getMainLooper());
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
@@ -111,8 +106,10 @@ public class MainActivity extends AppCompatActivity {
             String address = scrapedData;
             for(int i = 0; i < 3; i++)
                 address = address.substring(address.indexOf("\n") + 1);
+            String city = address.substring(address.indexOf("\n") + 1);
+            city = city.substring(0, city.indexOf("\n")).trim();
             address = address.substring(0, address.indexOf("\n")).trim();
-            newReceipt.setLocation(address);
+            newReceipt.setLocation(address + ", " + city);
 
             mReceiptViewModel.insert(newReceipt);
             this.runOnUiThread(() -> {
@@ -140,4 +137,12 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     };
+
+    @Override
+    public void clickedItem(Receipt r) {
+        Intent intent = new Intent(MainActivity.this, ReceiptDataActivity.class);
+        intent.putExtra("receiptData", r.getData());
+        intent.putExtra("storeLocation", r.getLocation());
+        startActivity(intent);
+    }
 }
