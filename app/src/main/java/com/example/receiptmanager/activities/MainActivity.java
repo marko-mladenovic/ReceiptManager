@@ -2,14 +2,23 @@ package com.example.receiptmanager.activities;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.Manifest;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import com.example.receiptmanager.R;
@@ -31,11 +40,16 @@ public class MainActivity extends AppCompatActivity implements ReceiptListAdapte
 
     final int RECEIPT_REQUEST_CODE = 101;
     final int NEW_RECEIPT_REQUEST_CODE = 201;
+    final int RECEIPT_DATA_REQUEST_CODE = 301;
 
     private String scannedUrl;
     private String scrapedData;
+    private String statistics;
+    private Receipt recentlyViewedReceipt;
 
     private ReceiptViewModel mReceiptViewModel;
+
+    private ImageView statsIcon;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,6 +66,20 @@ public class MainActivity extends AppCompatActivity implements ReceiptListAdapte
 
         mReceiptViewModel = new ViewModelProvider(this).get(ReceiptViewModel.class);
         mReceiptViewModel.getAllReceipts().observe(this, adapter::submitList);
+
+        statsIcon = findViewById(R.id.stats_icon);
+        statsIcon.setOnClickListener(view -> {
+            executor.execute(showStatsNotification);
+        });
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel("Stats Notification", "Stats Notification", NotificationManager.IMPORTANCE_DEFAULT);
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            manager.createNotificationChannel(channel);
+        }
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+            requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, 100);
     }
 
     ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -68,7 +96,43 @@ public class MainActivity extends AppCompatActivity implements ReceiptListAdapte
         if (requestCode == NEW_RECEIPT_REQUEST_CODE && resultCode == RESULT_OK) {
             executor.execute(insertReceipt);
         }
+        if (requestCode == RECEIPT_DATA_REQUEST_CODE && resultCode == RESULT_OK) {
+            executor.execute(deleteReceipt);
+        }
     }
+
+    Runnable showStatsNotification = () -> {
+        statistics = mReceiptViewModel.getNotificationData();
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+                    NotificationCompat.Builder builder = new NotificationCompat.Builder(MainActivity.this, "Stats Notification")
+                            .setContentTitle("Your Receipt Statistics")
+                            .setContentText(statistics)
+                            .setSmallIcon(R.drawable.baseline_query_stats_24)
+                            .setAutoCancel(true);
+
+                    NotificationManagerCompat managerCompat = NotificationManagerCompat.from(MainActivity.this);
+
+                    managerCompat.notify(1, builder.build());
+                }
+            }
+        });
+    };
+
+    Runnable deleteReceipt = () -> {
+        int status = mReceiptViewModel.delete(recentlyViewedReceipt);
+        if (status == 1) {
+            this.runOnUiThread(() -> {
+                Toast.makeText(this, "Receipt successfully deleted.", Toast.LENGTH_SHORT).show();
+            });
+        } else {
+            this.runOnUiThread(() -> {
+                Toast.makeText(this, "Error deleting receipt.", Toast.LENGTH_SHORT).show();
+            });
+        }
+    };
 
     Runnable insertReceipt = () -> {
         if(mReceiptViewModel.doesExist(scannedUrl)) {
@@ -104,7 +168,7 @@ public class MainActivity extends AppCompatActivity implements ReceiptListAdapte
 
             //Getting the address of the store out and setting it
             String address = scrapedData;
-            for(int i = 0; i < 3; i++)
+            for(int i = 0; i < 4; i++)
                 address = address.substring(address.indexOf("\n") + 1);
             String city = address.substring(address.indexOf("\n") + 1);
             city = city.substring(0, city.indexOf("\n")).trim();
@@ -143,6 +207,7 @@ public class MainActivity extends AppCompatActivity implements ReceiptListAdapte
         Intent intent = new Intent(MainActivity.this, ReceiptDataActivity.class);
         intent.putExtra("receiptData", r.getData());
         intent.putExtra("storeLocation", r.getLocation());
-        startActivity(intent);
+        startActivityForResult(intent, RECEIPT_DATA_REQUEST_CODE);
+        this.recentlyViewedReceipt = r;
     }
 }

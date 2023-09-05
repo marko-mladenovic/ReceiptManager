@@ -28,4 +28,8 @@ public class ReceiptViewModel extends AndroidViewModel {
     public void insert(Receipt receipt) { repository.insert(receipt); }
 
     public boolean doesExist(String receiptUrl) { return repository.doesExist(receiptUrl); }
+
+    public int delete(Receipt receipt) { return repository.delete(receipt); }
+
+    public String getNotificationData() { return repository.getNotificationData(); }
 }

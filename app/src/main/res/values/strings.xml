@@ -7,6 +7,9 @@
     <string name="addReceiptDialogTitleText">Add this receipt?</string>
     <string name="addButtonText">ADD</string>
     <string name="cancelButtonText">CANCEL</string>
+    <string name="backButtonText">BACK</string>
+    <string name="locationButtonText">SHOW LOCATION</string>
+    <string name="deleteButtonText">DELETE RECEIPT</string>
 
     <string name="primary_color">Primary color</string>
 </resources>

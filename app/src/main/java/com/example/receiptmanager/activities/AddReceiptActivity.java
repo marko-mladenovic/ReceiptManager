@@ -2,7 +2,6 @@ package com.example.receiptmanager.activities;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.content.Intent;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.TextView;
@@ -33,7 +32,7 @@ public class AddReceiptActivity extends AppCompatActivity {
             finish();
         });
 
-        mCancelButton = findViewById(R.id.cancelButton);
+        mCancelButton = findViewById(R.id.backButton);
         mCancelButton.setOnClickListener(view -> {
             onBackPressed();
         });
