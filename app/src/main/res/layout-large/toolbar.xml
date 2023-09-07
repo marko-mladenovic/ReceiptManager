@@ -8,16 +8,16 @@
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="16dp">
+        android:padding="32dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Receipt Manager"
-            android:layout_marginStart="8dp"
+            android:layout_marginStart="16dp"
             android:layout_alignParentLeft="true"
             android:textColor="@color/white"
-            android:textSize="20sp"
+            android:textSize="50sp"
             android:id="@+id/toolbar_title"
             android:layout_centerVertical="true"/>
 
@@ -28,7 +28,7 @@
             android:layout_alignParentEnd="true"
             android:id="@+id/stats_icon"
             android:layout_centerVertical="true"
-            android:layout_marginRight="8dp"/>
+            android:layout_marginRight="16dp"/>
 
     </RelativeLayout>
 

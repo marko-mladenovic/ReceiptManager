@@ -18,6 +18,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.DisplayMetrics;
 import android.widget.ImageView;
 import android.widget.Toast;
 
@@ -66,6 +67,9 @@ public class MainActivity extends AppCompatActivity implements ReceiptListAdapte
 
         mReceiptViewModel = new ViewModelProvider(this).get(ReceiptViewModel.class);
         mReceiptViewModel.getAllReceipts().observe(this, adapter::submitList);
+
+        DisplayMetrics d = new DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getMetrics(d);
 
         statsIcon = findViewById(R.id.stats_icon);
         statsIcon.setOnClickListener(view -> {
@@ -210,4 +214,5 @@ public class MainActivity extends AppCompatActivity implements ReceiptListAdapte
         startActivityForResult(intent, RECEIPT_DATA_REQUEST_CODE);
         this.recentlyViewedReceipt = r;
     }
+
 }
